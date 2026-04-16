@@ -2,18 +2,22 @@ import { useApp } from '../state/AppContext'
 import TopNav from './TopNav'
 
 export default function AdminView() {
-  const { clues, users, openEdit, openAddClue, deleteClue, removeUser } = useApp()
+  const { clues, users, leaderboard, openEdit, openAddClue, deleteClue, removeUser } = useApp()
 
   const totalMoons = clues.length
-  const claimed = clues.filter(c => c.solved).length
-  const teams = new Set(users.map(u => u.team)).size
+  const claimed    = clues.filter(c => c.solved).length
+  const teams      = leaderboard.length
 
-  function handleDelete(id) {
-    if (window.confirm('Remove this moon from the hunt?')) deleteClue(id)
+  async function handleDelete(id) {
+    if (window.confirm('Remove this moon from the hunt?')) {
+      try { await deleteClue(id) } catch (e) { alert(e.message) }
+    }
   }
 
-  function handleRemoveUser(name) {
-    if (window.confirm(`Remove hunter ${name}?`)) removeUser(name)
+  async function handleRemoveUser(id, name) {
+    if (window.confirm(`Remove hunter ${name}?`)) {
+      try { await removeUser(id) } catch (e) { alert(e.message) }
+    }
   }
 
   return (
@@ -48,7 +52,7 @@ export default function AdminView() {
                 <div>
                   <div className="clue-edit-text">{c.text}</div>
                   <div className="clue-meta">
-                    PIN: {c.pin} · {c.solved ? `✓ Claimed by ${c.solvedBy}` : 'Available'}
+                    PIN: {c.pin} · {c.solved ? `✓ Claimed by ${c.solved_by_team}` : c.is_active ? '🟢 Active' : 'Queued'}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
@@ -57,27 +61,26 @@ export default function AdminView() {
                 </div>
               </div>
             ))}
-            <button
-              className="submit-btn"
-              style={{ marginTop: 12, width: '100%', textAlign: 'center' }}
-              onClick={openAddClue}
-            >
+            <button className="submit-btn" style={{ marginTop: 12, width: '100%', textAlign: 'center' }} onClick={openAddClue}>
               + Add New Clue
             </button>
           </div>
 
           <div className="admin-panel" style={{ gridColumn: '1/-1' }}>
             <div className="admin-panel-title">👾 Registered Hunters</div>
+            {users.length === 0 && (
+              <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>No hunters yet.</div>
+            )}
             {users.map(u => (
-              <div className="user-row" key={u.name}>
-                <div className="user-avatar">{u.name.slice(0, 2).toUpperCase()}</div>
+              <div className="user-row" key={u.id}>
+                <div className="user-avatar">{u.username.slice(0, 2).toUpperCase()}</div>
                 <div className="user-info">
-                  <div className="user-name">{u.name}</div>
-                  <div className="user-team">{u.team}</div>
+                  <div className="user-name">{u.username}</div>
+                  <div className="user-team">{u.team_name}</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span className="pill pill-gold">{u.moons} 🌕</span>
-                  <button className="icon-btn danger" onClick={() => handleRemoveUser(u.name)}>Remove</button>
+                  <button className="icon-btn danger" onClick={() => handleRemoveUser(u.id, u.username)}>Remove</button>
                 </div>
               </div>
             ))}

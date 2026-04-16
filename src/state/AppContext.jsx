@@ -1,108 +1,126 @@
-import { createContext, useContext, useState, useCallback } from 'react'
-import { initialClues, initialUsers, initialLeaderboard } from '../data/initialData'
+import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { api } from '../api'
 
 const AppContext = createContext(null)
 
 export function AppProvider({ children }) {
-  const [currentView, setCurrentView] = useState('login')
-  const [user, setUser] = useState(null)
-  const [team, setTeam] = useState(null)
+  const [currentView, setCurrentViewRaw] = useState('login')
+  const [user, setUser]       = useState(null)
+  const [team, setTeam]       = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
-  const [clues, setClues] = useState(initialClues)
-  const [users, setUsers] = useState(initialUsers)
-  const [leaderboard, setLeaderboard] = useState(initialLeaderboard)
-  const [activeClues, setActiveClues] = useState([1, 2, 3])
-  const [foundClues, setFoundClues] = useState([])
-  const [editingId, setEditingId] = useState(null)
+  const [clues, setClues]             = useState([])
+  const [users, setUsers]             = useState([])
+  const [leaderboard, setLeaderboard] = useState([])
+  const [editingId, setEditingId]     = useState(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
-  const login = useCallback((username, teamName) => {
-    setUser(username)
-    setTeam(teamName)
-    setIsAdmin(false)
-    setCurrentView('game')
+  // Restore session from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('moonhunt_session')
+    if (!saved) return
+    try {
+      const s = JSON.parse(saved)
+      if (s.isAdmin) {
+        setIsAdmin(true)
+        setCurrentViewRaw('admin')
+      } else if (s.username && s.teamName) {
+        setUser(s.username)
+        setTeam(s.teamName)
+        setCurrentViewRaw('game')
+      }
+    } catch {}
   }, [])
 
-  const loginAdmin = useCallback(() => {
-    setIsAdmin(true)
-    setCurrentView('admin')
+  // ── Data fetchers ──────────────────────────────────────────────────────────
+
+  const clearSession = useCallback(() => {
+    localStorage.removeItem('moonhunt_token')
+    localStorage.removeItem('moonhunt_session')
+    setUser(null); setTeam(null); setIsAdmin(false)
+    setClues([]); setUsers([]); setLeaderboard([])
+    setCurrentViewRaw('login')
   }, [])
 
-  const logout = useCallback(() => {
-    setUser(null)
-    setTeam(null)
-    setIsAdmin(false)
-    setFoundClues([])
-    setActiveClues([1, 2, 3])
-    setCurrentView('login')
-  }, [])
-
-  const submitPin = useCallback((clueId, pin) => {
-    const clue = clues.find(c => c.id === clueId)
-    if (!clue || pin !== clue.pin) return false
-
-    setClues(prev => prev.map(c =>
-      c.id === clueId ? { ...c, solved: true, solvedBy: team } : c
-    ))
-
-    setFoundClues(prev => {
-      const next = clues.find(c =>
-        !c.solved && !activeClues.includes(c.id) && !prev.includes(c.id) && c.id !== clueId
-      )
-      setActiveClues(prevActive => {
-        const updated = prevActive.filter(x => x !== clueId)
-        return next ? [...updated, next.id] : updated
-      })
-      return [...prev, clueId]
-    })
-
-    setLeaderboard(prev => {
-      const exists = prev.find(l => l.team === team)
-      const updated = exists
-        ? prev.map(l => l.team === team ? { ...l, moons: l.moons + 1 } : l)
-        : [...prev, { team, moons: 1, members: 1 }]
-      return [...updated].sort((a, b) => b.moons - a.moons)
-    })
-
-    return true
-  }, [clues, activeClues, team])
-
-  const openEdit = useCallback((id) => {
-    setEditingId(id)
-    setIsModalOpen(true)
-  }, [])
-
-  const openAddClue = useCallback(() => {
-    setEditingId(null)
-    setIsModalOpen(true)
-  }, [])
-
-  const closeModal = useCallback(() => {
-    setIsModalOpen(false)
-    setEditingId(null)
-  }, [])
-
-  const saveClue = useCallback((text, pin, location) => {
-    if (editingId) {
-      setClues(prev => prev.map(c =>
-        c.id === editingId ? { ...c, text, pin, location } : c
-      ))
-    } else {
-      setClues(prev => {
-        const newId = Math.max(...prev.map(c => c.id)) + 1
-        return [...prev, { id: newId, text, pin, location, solved: false, solvedBy: null }]
-      })
+  const fetchPlayerData = useCallback(async () => {
+    try {
+      const [cd, lb] = await Promise.all([api.getClues(), api.getLeaderboard()])
+      setClues(cd.clues)
+      setLeaderboard(lb.leaderboard)
+    } catch (e) {
+      if (e.message.includes('Unauthorized') || e.message.includes('Token')) clearSession()
     }
-    closeModal()
-  }, [editingId, closeModal])
+  }, [clearSession])
 
-  const deleteClue = useCallback((id) => {
-    setClues(prev => prev.filter(c => c.id !== id))
-    setActiveClues(prev => prev.filter(x => x !== id))
+  const fetchAdminData = useCallback(async () => {
+    try {
+      const [cd, ud, lb] = await Promise.all([api.getAllClues(), api.getUsers(), api.getLeaderboard()])
+      setClues(cd.clues)
+      setUsers(ud.users)
+      setLeaderboard(lb.leaderboard)
+    } catch (e) {
+      if (e.message.includes('Unauthorized') || e.message.includes('Token')) clearSession()
+    }
+  }, [clearSession])
+
+  // Re-fetch whenever the active view changes
+  useEffect(() => {
+    if (currentView === 'game' || currentView === 'board') fetchPlayerData()
+    else if (currentView === 'admin') fetchAdminData()
+  }, [currentView, fetchPlayerData, fetchAdminData])
+
+  // ── Auth actions ───────────────────────────────────────────────────────────
+
+  const play = useCallback(async (username, teamName, password) => {
+    const data = await api.play(username, teamName, password)
+    localStorage.setItem('moonhunt_token', data.token)
+    localStorage.setItem('moonhunt_session', JSON.stringify({ username: data.username, teamName: data.teamName }))
+    setUser(data.username)
+    setTeam(data.teamName)
+    setIsAdmin(false)
+    setCurrentViewRaw('game')
   }, [])
 
-  const removeUser = useCallback((name) => {
-    setUsers(prev => prev.filter(u => u.name !== name))
+  const loginAdmin = useCallback(async (password) => {
+    const data = await api.loginAdmin(password)
+    localStorage.setItem('moonhunt_token', data.token)
+    localStorage.setItem('moonhunt_session', JSON.stringify({ isAdmin: true }))
+    setIsAdmin(true)
+    setCurrentViewRaw('admin')
+  }, [])
+
+  const logout = useCallback(() => clearSession(), [clearSession])
+
+  const setCurrentView = useCallback((view) => setCurrentViewRaw(view), [])
+
+  // ── Game actions ───────────────────────────────────────────────────────────
+
+  const submitPin = useCallback(async (clueId, pin) => {
+    const data = await api.submitPin(clueId, pin)
+    if (data.correct) fetchPlayerData()
+    return data.correct
+  }, [fetchPlayerData])
+
+  // ── Admin actions ──────────────────────────────────────────────────────────
+
+  const openEdit     = useCallback((id) => { setEditingId(id); setIsModalOpen(true) }, [])
+  const openAddClue  = useCallback(() => { setEditingId(null); setIsModalOpen(true) }, [])
+  const closeModal   = useCallback(() => { setIsModalOpen(false); setEditingId(null) }, [])
+
+  const saveClue = useCallback(async (text, pin, location) => {
+    if (editingId) await api.updateClue(editingId, text, pin, location)
+    else           await api.createClue(text, pin, location)
+    closeModal()
+    fetchAdminData()
+  }, [editingId, closeModal, fetchAdminData])
+
+  const deleteClue = useCallback(async (id) => {
+    await api.deleteClue(id)
+    setClues(prev => prev.filter(c => c.id !== id))
+  }, [])
+
+  const removeUser = useCallback(async (id) => {
+    await api.removeUser(id)
+    setUsers(prev => prev.filter(u => u.id !== id))
   }, [])
 
   return (
@@ -110,9 +128,8 @@ export function AppProvider({ children }) {
       currentView, setCurrentView,
       user, team, isAdmin,
       clues, users, leaderboard,
-      activeClues, foundClues,
       editingId, isModalOpen,
-      login, loginAdmin, logout,
+      play, loginAdmin, logout,
       submitPin,
       openEdit, openAddClue, closeModal, saveClue,
       deleteClue, removeUser,

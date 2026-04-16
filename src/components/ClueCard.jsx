@@ -3,24 +3,30 @@ import { useApp } from '../state/AppContext'
 
 export default function ClueCard({ clue }) {
   const { submitPin } = useApp()
-  const [pin, setPin] = useState('')
+  const [pin, setPin]         = useState('')
   const [feedback, setFeedback] = useState(null)
+  const [busy, setBusy]       = useState(false)
 
-  function handleSubmit() {
-    if (pin.length < 4) {
-      setFeedback({ ok: false, msg: 'Enter the full 4-digit PIN.' })
-      return
-    }
-    const ok = submitPin(clue.id, pin)
-    if (ok) {
-      setFeedback({ ok: true, msg: 'Moon found! Well done!' })
-    } else {
-      setFeedback({ ok: false, msg: 'Wrong PIN. Keep searching!' })
-      setPin('')
-      setTimeout(() => setFeedback(null), 1500)
+  async function handleSubmit() {
+    if (pin.length < 4) { setFeedback({ ok: false, msg: 'Enter the full 4-digit PIN.' }); return }
+    setBusy(true)
+    try {
+      const ok = await submitPin(clue.id, pin)
+      if (ok) {
+        setFeedback({ ok: true, msg: 'Moon found! Well done! 🌕' })
+      } else {
+        setFeedback({ ok: false, msg: 'Wrong PIN. Keep searching!' })
+        setPin('')
+        setTimeout(() => setFeedback(null), 1500)
+      }
+    } catch {
+      setFeedback({ ok: false, msg: 'Network error. Try again.' })
+    } finally {
+      setBusy(false)
     }
   }
 
+  // Solved clue (found by my team)
   if (clue.solved) {
     return (
       <div className="clue-card solved">
@@ -52,13 +58,14 @@ export default function ClueCard({ clue }) {
           maxLength={4}
           placeholder="PIN"
           onChange={e => setPin(e.target.value.replace(/[^0-9]/g, ''))}
-          onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+          onKeyDown={e => e.key === 'Enter' && !busy && handleSubmit()}
+          disabled={busy}
         />
-        <button className="submit-btn" onClick={handleSubmit}>Submit</button>
+        <button className="submit-btn" onClick={handleSubmit} disabled={busy}>
+          {busy ? '…' : 'Submit'}
+        </button>
       </div>
-      {feedback && (
-        <div className={`pin-feedback ${feedback.ok ? 'ok' : 'err'}`}>{feedback.msg}</div>
-      )}
+      {feedback && <div className={`pin-feedback ${feedback.ok ? 'ok' : 'err'}`}>{feedback.msg}</div>}
     </div>
   )
 }
