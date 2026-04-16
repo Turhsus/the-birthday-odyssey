@@ -41,7 +41,7 @@ router.post('/login-admin', (req, res) => {
   const { password } = req.body
   const admin = db.prepare('SELECT * FROM users WHERE is_admin = 1 LIMIT 1').get()
   if (!admin || !bcrypt.compareSync(password, admin.password_hash)) {
-    return res.status(401).json({ error: 'Invalid admin password.' })
+    return res.status(401).json({ error: 'Incorrect password.' })
   }
   const token = signToken({ id: admin.id, username: 'admin', teamName: 'Admin', isAdmin: true })
   res.json({ token })
