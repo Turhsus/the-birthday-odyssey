@@ -24,10 +24,12 @@ app.use('/api/teams', teamRoutes)
 app.use('/api/leaderboard', leaderboardRoutes)
 app.use('/api/admin', adminRoutes)
 
-app.use(express.static(path.join(__dirname, '../dist')))
-app.get('*', (_req, res) => {
-  res.sendFile(path.join(__dirname, '../dist/index.html'))
-})
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../dist')))
+  app.get('*', (_req, res) => {
+    res.sendFile(path.join(__dirname, '../dist/index.html'))
+  })
+}
 
 app.use((err, _req, res, _next) => {
   console.error(err)
