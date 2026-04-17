@@ -26,7 +26,21 @@ router.get('/', requireAuth, (req, res) => {
     .filter(t => !activeIds.has(t.team_id))
     .map(t => ({ ...t, moons: 0 }))
 
-  res.json({ leaderboard: [...active, ...zeros] })
+  const allMembers = db.prepare(
+    'SELECT team_id, username FROM users WHERE is_admin = 0 AND team_id IS NOT NULL ORDER BY username'
+  ).all()
+  const byTeam = {}
+  for (const m of allMembers) {
+    if (!byTeam[m.team_id]) byTeam[m.team_id] = []
+    byTeam[m.team_id].push(m.username)
+  }
+
+  const leaderboard = [...active, ...zeros].map(t => ({
+    ...t,
+    members_list: byTeam[t.team_id] || [],
+  }))
+
+  res.json({ leaderboard })
 })
 
 export default router
