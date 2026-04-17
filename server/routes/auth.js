@@ -1,35 +1,48 @@
 import { Router } from 'express'
 import bcrypt from 'bcryptjs'
 import { db } from '../db.js'
-import { signToken } from '../middleware/auth.js'
+import { signToken, requireAdmin } from '../middleware/auth.js'
 
 const router = Router()
 
-// Player: join (auto-register) or login with existing credentials
+function userWithTeam(username) {
+  return db.prepare(`
+    SELECT u.id, u.username, u.is_admin, u.password_hash,
+      t.id AS team_id, COALESCE(t.name, '') AS team_name, t.name_locked
+    FROM users u
+    LEFT JOIN teams t ON t.id = u.team_id
+    WHERE u.username = ?
+  `).get(username)
+}
+
+// Player: login or auto-register
 router.post('/play', (req, res) => {
-  const { username, teamName, password } = req.body
+  const { username, password } = req.body
   if (!username || !password) {
     return res.status(400).json({ error: 'Username and password are required.' })
   }
 
-  const existing = db.prepare('SELECT * FROM users WHERE username = ? AND is_admin = 0').get(username)
+  const existing = userWithTeam(username)
 
-  if (existing) {
+  if (existing && !existing.is_admin) {
     if (!bcrypt.compareSync(password, existing.password_hash)) {
       return res.status(401).json({ error: 'Wrong password for this username.' })
     }
-    const token = signToken({ id: existing.id, username: existing.username, teamName: existing.team_name, isAdmin: false })
-    return res.json({ token, username: existing.username, teamName: existing.team_name })
+    const token = signToken({ id: existing.id, username: existing.username, teamId: existing.team_id, teamName: existing.team_name, isAdmin: false })
+    return res.json({ token, username: existing.username, teamName: existing.team_name, teamId: existing.team_id, nameLocked: !!existing.name_locked })
   }
 
-  // New player — register
-  if (!teamName) return res.status(400).json({ error: 'Team name is required for new players.' })
+  if (existing?.is_admin) {
+    return res.status(400).json({ error: 'That username is reserved.' })
+  }
+
+  // New player — register (team assigned later by admin)
   try {
     const { lastInsertRowid } = db.prepare(
-      'INSERT INTO users (username, team_name, password_hash) VALUES (?, ?, ?)'
-    ).run(username, teamName, bcrypt.hashSync(password, 10))
-    const token = signToken({ id: lastInsertRowid, username, teamName, isAdmin: false })
-    res.status(201).json({ token, username, teamName, isNew: true })
+      'INSERT INTO users (username, password_hash) VALUES (?, ?)'
+    ).run(username, bcrypt.hashSync(password, 10))
+    const token = signToken({ id: lastInsertRowid, username, teamId: null, teamName: '', isAdmin: false })
+    res.status(201).json({ token, username, teamName: '', teamId: null, nameLocked: false, isNew: true })
   } catch (e) {
     if (e.message.includes('UNIQUE')) return res.status(409).json({ error: 'Username already taken.' })
     throw e
@@ -43,8 +56,26 @@ router.post('/login-admin', (req, res) => {
   if (!admin || !bcrypt.compareSync(password, admin.password_hash)) {
     return res.status(401).json({ error: 'Incorrect password.' })
   }
-  const token = signToken({ id: admin.id, username: 'admin', teamName: 'Admin', isAdmin: true })
+  const token = signToken({ id: admin.id, username: 'admin', teamId: null, teamName: 'Admin', isAdmin: true })
   res.json({ token })
+})
+
+// Admin: change password
+router.put('/change-password', requireAdmin, (req, res) => {
+  const { currentPassword, newPassword } = req.body
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'Both current and new password are required.' })
+  }
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'New password must be at least 6 characters.' })
+  }
+  const admin = db.prepare('SELECT * FROM users WHERE is_admin = 1 LIMIT 1').get()
+  if (!bcrypt.compareSync(currentPassword, admin.password_hash)) {
+    return res.status(401).json({ error: 'Current password is incorrect.' })
+  }
+  db.prepare('UPDATE users SET password_hash = ? WHERE is_admin = 1')
+    .run(bcrypt.hashSync(newPassword, 10))
+  res.json({ ok: true })
 })
 
 export default router

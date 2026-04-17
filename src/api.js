@@ -18,21 +18,32 @@ async function request(path, options = {}) {
 
 export const api = {
   // Auth
-  play:       (username, teamName, password) => request('/auth/play',        { method: 'POST', body: { username, teamName, password } }),
-  loginAdmin: (password)                     => request('/auth/login-admin', { method: 'POST', body: { password } }),
+  play:           (username, password)           => request('/auth/play',           { method: 'POST', body: { username, password } }),
+  loginAdmin:     (password)                     => request('/auth/login-admin',    { method: 'POST', body: { password } }),
+  changePassword: (currentPassword, newPassword) => request('/auth/change-password',{ method: 'PUT',  body: { currentPassword, newPassword } }),
 
   // Clues
-  getClues:   ()                             => request('/clues'),
-  getAllClues: ()                             => request('/clues/all'),
-  submitPin:  (id, pin)                      => request(`/clues/${id}/submit`, { method: 'POST', body: { pin } }),
-  createClue: (text, pin, location)          => request('/clues',     { method: 'POST', body: { text, pin, location } }),
-  updateClue: (id, text, pin, location)      => request(`/clues/${id}`, { method: 'PUT',  body: { text, pin, location } }),
-  deleteClue: (id)                           => request(`/clues/${id}`, { method: 'DELETE' }),
+  getClues:    ()                            => request('/clues'),
+  getAllClues:  ()                            => request('/clues/all'),
+  submitPin:   (id, pin)                     => request(`/clues/${id}/submit`,  { method: 'POST', body: { pin } }),
+  createClue:  (text, pin, location)         => request('/clues',               { method: 'POST', body: { text, pin, location } }),
+  updateClue:  (id, text, pin, location)     => request(`/clues/${id}`,         { method: 'PUT',  body: { text, pin, location } }),
+  deleteClue:  (id)                          => request(`/clues/${id}`,         { method: 'DELETE' }),
 
   // Users
-  getUsers:   ()                             => request('/users'),
-  removeUser: (id)                           => request(`/users/${id}`, { method: 'DELETE' }),
+  getUsers:        ()            => request('/users'),
+  assignUserTeam:  (id, teamId)  => request(`/users/${id}/team`, { method: 'PUT', body: { teamId } }),
+  removeUser:      (id)          => request(`/users/${id}`,      { method: 'DELETE' }),
+
+  // Teams
+  getTeams:    ()          => request('/teams'),
+  createTeam:  (name)      => request('/teams',          { method: 'POST',   body: { name } }),
+  renameTeam:  (id, name)  => request(`/teams/${id}/name`, { method: 'PUT', body: { name } }),
+  deleteTeam:  (id)        => request(`/teams/${id}`,    { method: 'DELETE' }),
+
+  // Admin
+  resetGame: () => request('/admin/reset', { method: 'POST' }),
 
   // Leaderboard
-  getLeaderboard: ()                         => request('/leaderboard'),
+  getLeaderboard: () => request('/leaderboard'),
 }

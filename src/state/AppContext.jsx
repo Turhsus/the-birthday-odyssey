@@ -5,14 +5,17 @@ const AppContext = createContext(null)
 
 export function AppProvider({ children }) {
   const [currentView, setCurrentViewRaw] = useState('login')
-  const [user, setUser]       = useState(null)
-  const [team, setTeam]       = useState(null)
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [clues, setClues]             = useState([])
-  const [users, setUsers]             = useState([])
-  const [leaderboard, setLeaderboard] = useState([])
-  const [editingId, setEditingId]     = useState(null)
-  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [user, setUser]                 = useState(null)
+  const [team, setTeam]                 = useState(null)
+  const [teamId, setTeamId]             = useState(null)
+  const [teamNameLocked, setTeamNameLocked] = useState(false)
+  const [isAdmin, setIsAdmin]           = useState(false)
+  const [clues, setClues]               = useState([])
+  const [users, setUsers]               = useState([])
+  const [teams, setTeams]               = useState([])
+  const [leaderboard, setLeaderboard]   = useState([])
+  const [editingId, setEditingId]       = useState(null)
+  const [isModalOpen, setIsModalOpen]   = useState(false)
 
   // Restore session from localStorage on mount
   useEffect(() => {
@@ -23,9 +26,11 @@ export function AppProvider({ children }) {
       if (s.isAdmin) {
         setIsAdmin(true)
         setCurrentViewRaw('admin')
-      } else if (s.username && s.teamName) {
+      } else if (s.username) {
         setUser(s.username)
         setTeam(s.teamName)
+        setTeamId(s.teamId)
+        setTeamNameLocked(!!s.nameLocked)
         setCurrentViewRaw('game')
       }
     } catch {}
@@ -36,8 +41,9 @@ export function AppProvider({ children }) {
   const clearSession = useCallback(() => {
     localStorage.removeItem('moonhunt_token')
     localStorage.removeItem('moonhunt_session')
-    setUser(null); setTeam(null); setIsAdmin(false)
-    setClues([]); setUsers([]); setLeaderboard([])
+    setUser(null); setTeam(null); setTeamId(null); setTeamNameLocked(false)
+    setIsAdmin(false)
+    setClues([]); setUsers([]); setTeams([]); setLeaderboard([])
     setCurrentViewRaw('login')
   }, [])
 
@@ -53,29 +59,36 @@ export function AppProvider({ children }) {
 
   const fetchAdminData = useCallback(async () => {
     try {
-      const [cd, ud, lb] = await Promise.all([api.getAllClues(), api.getUsers(), api.getLeaderboard()])
+      const [cd, ud, td, lb] = await Promise.all([api.getAllClues(), api.getUsers(), api.getTeams(), api.getLeaderboard()])
       setClues(cd.clues)
       setUsers(ud.users)
+      setTeams(td.teams)
       setLeaderboard(lb.leaderboard)
     } catch (e) {
       if (e.message.includes('Unauthorized') || e.message.includes('Token')) clearSession()
     }
   }, [clearSession])
 
-  // Re-fetch whenever the active view changes
   useEffect(() => {
-    if (currentView === 'game' || currentView === 'board') fetchPlayerData()
-    else if (currentView === 'admin') fetchAdminData()
+    if (currentView === 'game' || currentView === 'board') {
+      fetchPlayerData()
+      const id = setInterval(fetchPlayerData, 10000)
+      return () => clearInterval(id)
+    } else if (currentView === 'admin') {
+      fetchAdminData()
+    }
   }, [currentView, fetchPlayerData, fetchAdminData])
 
   // ── Auth actions ───────────────────────────────────────────────────────────
 
-  const play = useCallback(async (username, teamName, password) => {
-    const data = await api.play(username, teamName, password)
+  const play = useCallback(async (username, password) => {
+    const data = await api.play(username, password)
     localStorage.setItem('moonhunt_token', data.token)
-    localStorage.setItem('moonhunt_session', JSON.stringify({ username: data.username, teamName: data.teamName }))
+    localStorage.setItem('moonhunt_session', JSON.stringify({ username: data.username, teamName: data.teamName, teamId: data.teamId, nameLocked: data.nameLocked }))
     setUser(data.username)
     setTeam(data.teamName)
+    setTeamId(data.teamId)
+    setTeamNameLocked(!!data.nameLocked)
     setIsAdmin(false)
     setCurrentViewRaw('game')
   }, [])
@@ -89,7 +102,6 @@ export function AppProvider({ children }) {
   }, [])
 
   const logout = useCallback(() => clearSession(), [clearSession])
-
   const setCurrentView = useCallback((view) => setCurrentViewRaw(view), [])
 
   // ── Game actions ───────────────────────────────────────────────────────────
@@ -100,11 +112,20 @@ export function AppProvider({ children }) {
     return data.correct
   }, [fetchPlayerData])
 
+  const renameTeam = useCallback(async (name) => {
+    const data = await api.renameTeam(teamId, name)
+    localStorage.setItem('moonhunt_token', data.token)
+    const session = JSON.parse(localStorage.getItem('moonhunt_session') || '{}')
+    localStorage.setItem('moonhunt_session', JSON.stringify({ ...session, teamName: data.name, nameLocked: true }))
+    setTeam(data.name)
+    setTeamNameLocked(true)
+  }, [teamId])
+
   // ── Admin actions ──────────────────────────────────────────────────────────
 
-  const openEdit     = useCallback((id) => { setEditingId(id); setIsModalOpen(true) }, [])
-  const openAddClue  = useCallback(() => { setEditingId(null); setIsModalOpen(true) }, [])
-  const closeModal   = useCallback(() => { setIsModalOpen(false); setEditingId(null) }, [])
+  const openEdit    = useCallback((id) => { setEditingId(id); setIsModalOpen(true) }, [])
+  const openAddClue = useCallback(() => { setEditingId(null); setIsModalOpen(true) }, [])
+  const closeModal  = useCallback(() => { setIsModalOpen(false); setEditingId(null) }, [])
 
   const saveClue = useCallback(async (text, pin, location) => {
     if (editingId) await api.updateClue(editingId, text, pin, location)
@@ -126,13 +147,13 @@ export function AppProvider({ children }) {
   return (
     <AppContext.Provider value={{
       currentView, setCurrentView,
-      user, team, isAdmin,
-      clues, users, leaderboard,
+      user, team, teamId, teamNameLocked, isAdmin,
+      clues, users, teams, leaderboard,
       editingId, isModalOpen,
       play, loginAdmin, logout,
-      submitPin,
+      submitPin, renameTeam,
       openEdit, openAddClue, closeModal, saveClue,
-      deleteClue, removeUser,
+      deleteClue, removeUser, fetchAdminData,
     }}>
       {children}
     </AppContext.Provider>

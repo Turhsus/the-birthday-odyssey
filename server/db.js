@@ -13,10 +13,17 @@ db.pragma('journal_mode = WAL')
 db.pragma('foreign_keys = ON')
 
 db.exec(`
+  CREATE TABLE IF NOT EXISTS teams (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT    DEFAULT '',
+    name_locked INTEGER DEFAULT 0,
+    created_at  TEXT    DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS users (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     username      TEXT    UNIQUE NOT NULL,
-    team_name     TEXT    NOT NULL,
+    team_id       INTEGER REFERENCES teams(id) ON DELETE SET NULL,
     password_hash TEXT    NOT NULL,
     is_admin      INTEGER DEFAULT 0,
     created_at    TEXT    DEFAULT (datetime('now'))
@@ -37,7 +44,8 @@ db.exec(`
     id        INTEGER PRIMARY KEY AUTOINCREMENT,
     clue_id   INTEGER NOT NULL REFERENCES clues(id)  ON DELETE CASCADE,
     user_id   INTEGER NOT NULL REFERENCES users(id)  ON DELETE CASCADE,
-    team_name TEXT    NOT NULL,
+    team_id   INTEGER REFERENCES teams(id) ON DELETE SET NULL,
+    team_name TEXT    NOT NULL DEFAULT '',
     found_at  TEXT    DEFAULT (datetime('now'))
   );
 
@@ -60,13 +68,13 @@ if (clueCount === 0) {
   ]
   seed.forEach(([text, pin, location], i) => {
     const { lastInsertRowid } = ins.run(text, pin, location)
-    if (i < 3) act.run(lastInsertRowid)
+    if (i < 2) act.run(lastInsertRowid)
   })
 }
 
 // Seed admin user on first run
 const { n: adminCount } = db.prepare("SELECT COUNT(*) as n FROM users WHERE is_admin = 1").get()
 if (adminCount === 0) {
-  db.prepare("INSERT INTO users (username, team_name, password_hash, is_admin) VALUES ('admin', 'Admin', ?, 1)")
+  db.prepare("INSERT INTO users (username, password_hash, is_admin) VALUES ('admin', ?, 1)")
     .run(bcrypt.hashSync('admin123', 10))
 }

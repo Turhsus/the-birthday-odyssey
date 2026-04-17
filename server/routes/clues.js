@@ -4,20 +4,40 @@ import { requireAuth, requireAdmin } from '../middleware/auth.js'
 
 const router = Router()
 
+function ensureActiveClues(teamId) {
+  if (!teamId) return
+  // Count active clues this team hasn't solved yet
+  const { count } = db.prepare(`
+    SELECT COUNT(*) AS count FROM active_clues ac
+    WHERE ac.clue_id NOT IN (SELECT clue_id FROM moon_finds WHERE team_id = ?)
+  `).get(teamId)
+
+  if (count === 0) {
+    const candidates = db.prepare(`
+      SELECT id FROM clues
+      WHERE solved = 0 AND id NOT IN (SELECT clue_id FROM active_clues)
+      ORDER BY id LIMIT 2
+    `).all()
+    const ins = db.prepare('INSERT OR IGNORE INTO active_clues (clue_id) VALUES (?)')
+    for (const { id } of candidates) ins.run(id)
+  }
+}
+
 // Player: active clues + clues found by my team — PIN intentionally omitted
 router.get('/', requireAuth, (req, res) => {
-  const { teamName } = req.user
+  const { teamId } = req.user
+  ensureActiveClues(teamId)
   const clues = db.prepare(`
     SELECT
       c.id, c.text, c.solved, c.solved_by_team,
       (mf.id IS NOT NULL)      AS found_by_my_team,
       (ac.clue_id IS NOT NULL) AS is_active
     FROM clues c
-    LEFT JOIN moon_finds   mf ON mf.clue_id = c.id AND mf.team_name = ?
+    LEFT JOIN moon_finds   mf ON mf.clue_id = c.id AND mf.team_id = ?
     LEFT JOIN active_clues ac ON ac.clue_id = c.id
     WHERE ac.clue_id IS NOT NULL OR mf.id IS NOT NULL
     ORDER BY c.id
-  `).all(teamName)
+  `).all(teamId ?? -1)
   res.json({ clues })
 })
 
@@ -36,7 +56,9 @@ router.get('/all', requireAdmin, (req, res) => {
 router.post('/:id/submit', requireAuth, (req, res) => {
   const clueId = parseInt(req.params.id)
   const { pin } = req.body
-  const { id: userId, teamName } = req.user
+  const { id: userId } = req.user
+
+  if (!req.user.teamId) return res.status(400).json({ error: 'You must be on a team to submit PINs.' })
 
   const clue = db.prepare('SELECT * FROM clues WHERE id = ?').get(clueId)
   if (!clue) return res.status(404).json({ error: 'Clue not found' })
@@ -46,11 +68,12 @@ router.post('/:id/submit', requireAuth, (req, res) => {
 
   if (pin !== clue.pin) return res.json({ correct: false })
 
+  const { teamId, teamName } = req.user
   db.transaction(() => {
     db.prepare("UPDATE clues SET solved = 1, solved_by_team = ?, solved_at = datetime('now') WHERE id = ?")
       .run(teamName, clueId)
-    db.prepare('INSERT INTO moon_finds (clue_id, user_id, team_name) VALUES (?, ?, ?)')
-      .run(clueId, userId, teamName)
+    db.prepare('INSERT INTO moon_finds (clue_id, user_id, team_id, team_name) VALUES (?, ?, ?, ?)')
+      .run(clueId, userId, teamId, teamName)
     db.prepare('DELETE FROM active_clues WHERE clue_id = ?').run(clueId)
     // Promote the next unsolved, inactive clue into the active pool
     const next = db.prepare(`
