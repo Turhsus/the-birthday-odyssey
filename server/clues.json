@@ -1,0 +1,27 @@
+[
+  {
+    "text": "This is a test clue 1",
+    "pin": "1234",
+    "location": "ets"
+  },
+  {
+    "text": "Test clue 2",
+    "pin": "1234",
+    "location": "12"
+  },
+  {
+    "text": "Test clue 3",
+    "pin": "1234",
+    "location": "a"
+  },
+  {
+    "text": "test clue 4",
+    "pin": "1234",
+    "location": "test"
+  },
+  {
+    "text": "test clue 5",
+    "pin": "1234",
+    "location": "test123"
+  }
+]

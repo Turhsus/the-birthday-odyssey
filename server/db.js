@@ -56,20 +56,6 @@ db.exec(`
   );
 `)
 
-// Seed clues on first run
-const { n: clueCount } = db.prepare('SELECT COUNT(*) as n FROM clues').get()
-if (clueCount === 0) {
-  const ins = db.prepare('INSERT INTO clues (text, pin, location) VALUES (?, ?, ?)')
-  const seed = [
-    ["Where morning light meets the old iron gate, and pigeons gather for their breakfast debate.", "3847", "Main park entrance gate"],
-    ["Beside the sleeping giant of stone and oak, where children's laughter and summer rain spoke.", "9152", "Statue in Riverside Park"],
-    ["Find where the red door watches the cobblestones pass, and a window box blooms with sweet-smelling grass.", "6073", "Red door on Maple St"],
-    ["The old clock tower holds its breath at noon — search its shadow for a crescent moon.", "4419", "Clock tower base, north shadow"],
-    ["Under the bridge where the sparrows nest, tucked behind the stone that faces west.", "2281", "Mill Bridge, west pillar"],
-  ]
-  seed.forEach(([text, pin, location]) => ins.run(text, pin, location))
-}
-
 // Seed admin user on first run
 const { n: adminCount } = db.prepare("SELECT COUNT(*) as n FROM users WHERE is_admin = 1").get()
 if (adminCount === 0) {

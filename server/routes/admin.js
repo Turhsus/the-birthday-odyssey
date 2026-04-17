@@ -2,6 +2,12 @@ import { Router } from 'express'
 import { db } from '../db.js'
 import { requireAdmin } from '../middleware/auth.js'
 import { ensureActiveClues } from '../utils.js'
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const CLUES_FILE = path.join(__dirname, '../clues.json')
 
 const router = Router()
 
@@ -52,6 +58,40 @@ router.post('/reset', requireAdmin, (req, res) => {
   })()
 
   res.json({ ok: true })
+})
+
+router.post('/sync-clues', requireAdmin, (req, res) => {
+  const fileClues = JSON.parse(fs.readFileSync(CLUES_FILE, 'utf8'))
+  const dbClues   = db.prepare('SELECT text, pin, location FROM clues').all()
+
+  const dbPins   = new Set(dbClues.map(c => c.pin))
+  const filePins = new Set(fileClues.map(c => c.pin))
+
+  // JSON → DB: insert clues in file but not in DB
+  const insert = db.prepare('INSERT INTO clues (text, pin, location) VALUES (?, ?, ?)')
+  let addedToDb = 0
+  for (const c of fileClues) {
+    if (!dbPins.has(c.pin)) {
+      insert.run(c.text, c.pin, c.location || '')
+      addedToDb++
+    }
+  }
+
+  // DB → JSON: append clues in DB but not in file
+  let addedToFile = 0
+  const merged = [...fileClues]
+  for (const c of dbClues) {
+    if (!filePins.has(c.pin)) {
+      merged.push({ text: c.text, pin: c.pin, location: c.location })
+      addedToFile++
+    }
+  }
+
+  if (addedToFile > 0) {
+    fs.writeFileSync(CLUES_FILE, JSON.stringify(merged, null, 2))
+  }
+
+  res.json({ addedToDb, addedToFile })
 })
 
 export default router

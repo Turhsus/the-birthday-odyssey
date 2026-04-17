@@ -41,6 +41,20 @@ export default function AdminView() {
     } catch (e) { alert(e.message) }
   }
 
+  const [syncMsg, setSyncMsg] = useState(null)
+  const [syncBusy, setSyncBusy] = useState(false)
+
+  async function handleSyncClues() {
+    setSyncBusy(true); setSyncMsg(null)
+    try {
+      const { addedToDb, addedToFile } = await api.syncClues()
+      setSyncMsg(`Synced: +${addedToDb} to DB, +${addedToFile} to file`)
+      if (addedToDb > 0) fetchAdminData()
+    } catch (e) {
+      setSyncMsg(`Error: ${e.message}`)
+    } finally { setSyncBusy(false) }
+  }
+
   async function handleDelete(id) {
     if (window.confirm('Remove this moon from the hunt?')) {
       try { await deleteClue(id) } catch (e) { alert(e.message) }
@@ -142,9 +156,15 @@ export default function AdminView() {
                 </div>
               </div>
             ))}
-            <button className="submit-btn" style={{ marginTop: 12, width: '100%', textAlign: 'center' }} onClick={openAddClue}>
-              + Add New Clue
-            </button>
+            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+              <button className="submit-btn" style={{ flex: 1, textAlign: 'center' }} onClick={openAddClue}>
+                + Add New Clue
+              </button>
+              <button className="icon-btn" onClick={handleSyncClues} disabled={syncBusy}>
+                {syncBusy ? '…' : '⟳ Sync Clues'}
+              </button>
+            </div>
+            {syncMsg && <div style={{ fontSize: 12, marginTop: 6, color: 'var(--text-muted)' }}>{syncMsg}</div>}
           </div>
 
           {/* Team management */}

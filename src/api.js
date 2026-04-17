@@ -43,8 +43,9 @@ export const api = {
   deleteTeam:  (id)        => request(`/teams/${id}`,    { method: 'DELETE' }),
 
   // Admin
-  startGame: () => request('/admin/start', { method: 'POST' }),
-  resetGame: () => request('/admin/reset', { method: 'POST' }),
+  startGame:  () => request('/admin/start',       { method: 'POST' }),
+  resetGame:  () => request('/admin/reset',       { method: 'POST' }),
+  syncClues:  () => request('/admin/sync-clues',  { method: 'POST' }),
 
   // Leaderboard
   getLeaderboard: () => request('/leaderboard'),
