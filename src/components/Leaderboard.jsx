@@ -6,15 +6,15 @@ const RANK_CLASSES = ['gold', 'silver', 'bronze']
 const RANK_ICONS = ['🥇', '🥈', '🥉']
 
 export default function Leaderboard() {
-  const { leaderboard } = useApp()
+  const { leaderboard, gameOver } = useApp()
 
   return (
     <div className="view">
       <TopNav />
       <div style={{ padding: '1.25rem' }}>
         <div className="game-header">
-          <div className="game-title">Leaderboard</div>
-          <div className="game-subtitle">Top moon hunters this season</div>
+          <div className="game-title">{gameOver ? '🏆 Final Standings' : 'Leaderboard'}</div>
+          <div className="game-subtitle">{gameOver ? 'The hunt is over — here are the results!' : 'Top moon hunters this season'}</div>
         </div>
         <div>
           {leaderboard.map((t, i) => (

@@ -16,6 +16,7 @@ export function AppProvider({ children }) {
   const [leaderboard, setLeaderboard]   = useState([])
   const [editingId, setEditingId]       = useState(null)
   const [isModalOpen, setIsModalOpen]   = useState(false)
+  const [gameOver, setGameOver]         = useState(false)
 
   // Restore session from localStorage on mount
   useEffect(() => {
@@ -44,6 +45,7 @@ export function AppProvider({ children }) {
     setUser(null); setTeam(null); setTeamId(null); setTeamNameLocked(false)
     setIsAdmin(false)
     setClues([]); setUsers([]); setTeams([]); setLeaderboard([])
+    setGameOver(false)
     setCurrentViewRaw('login')
   }, [])
 
@@ -52,6 +54,7 @@ export function AppProvider({ children }) {
       const [cd, lb] = await Promise.all([api.getClues(), api.getLeaderboard()])
       setClues(cd.clues)
       setLeaderboard(lb.leaderboard)
+      setGameOver(cd.gameOver ?? false)
     } catch (e) {
       if (e.message.includes('Unauthorized') || e.message.includes('Token')) clearSession()
     }
@@ -150,7 +153,7 @@ export function AppProvider({ children }) {
     <AppContext.Provider value={{
       currentView, setCurrentView,
       user, team, teamId, teamNameLocked, isAdmin,
-      clues, users, teams, leaderboard,
+      clues, users, teams, leaderboard, gameOver,
       editingId, isModalOpen,
       play, loginAdmin, logout,
       submitPin, renameTeam,

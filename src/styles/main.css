@@ -261,6 +261,74 @@ body {
 }
 textarea.form-input { resize: vertical; min-height: 80px; letter-spacing: normal; }
 
+/* ─── GAME OVER SCREEN ─── */
+.game-over-screen {
+  position: fixed; inset: 0; z-index: 100;
+  background: radial-gradient(ellipse at 50% 40%, #1e0d4a 0%, var(--space-deep) 65%);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 2rem; text-align: center; overflow: hidden;
+  animation: goFadeIn 0.9s ease-out both;
+}
+@keyframes goFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.go-stars { position: absolute; inset: 0; pointer-events: none; }
+.go-star {
+  position: absolute; left: var(--x); top: var(--y);
+  color: var(--star-white); font-size: 10px; opacity: 0.3;
+  animation: goTwinkle var(--d, 3s) ease-in-out infinite alternate;
+}
+@keyframes goTwinkle { from { opacity: 0.1; } to { opacity: 0.7; } }
+
+.go-title {
+  font-family: 'Fredoka One', cursive;
+  font-size: clamp(2rem, 9vw, 3.5rem);
+  color: var(--moon-gold);
+  text-shadow: 0 0 40px rgba(245,200,66,0.55), 0 2px 0 rgba(0,0,0,0.4);
+  animation: goSlideDown 0.8s cubic-bezier(0.34,1.56,0.64,1) 0.15s both;
+}
+.go-sub {
+  color: var(--text-muted); font-size: 1rem; margin-top: 0.4rem;
+  animation: goFadeUp 0.6s ease 0.5s both;
+}
+@keyframes goSlideDown {
+  from { opacity: 0; transform: translateY(-36px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes goFadeUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.go-badge {
+  margin: 2.2rem 0 1.8rem;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(245,200,66,0.18);
+  border-radius: 20px; padding: 1.5rem 2.5rem;
+  animation: goPop 0.7s cubic-bezier(0.34,1.56,0.64,1) 0.65s both;
+}
+@keyframes goPop {
+  from { opacity: 0; transform: scale(0.4); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.go-medal { font-size: 4rem; display: block; line-height: 1; }
+.go-place {
+  font-family: 'Fredoka One', cursive; font-size: 1.9rem;
+  color: var(--text-bright); margin-top: 0.5rem;
+}
+.go-team  { font-size: 1.05rem; color: var(--accent-teal); margin-top: 0.2rem; }
+.go-moons { font-size: 0.9rem;  color: var(--text-muted);  margin-top: 0.25rem; }
+
+.go-btn {
+  padding: 14px 36px; border-radius: 50px; border: none; cursor: pointer;
+  background: linear-gradient(135deg, var(--moon-gold), var(--moon-gold-dark));
+  color: var(--space-deep); font-family: 'Fredoka One', cursive;
+  font-size: 1.15rem; letter-spacing: 0.5px;
+  box-shadow: 0 4px 22px rgba(245,200,66,0.4);
+  animation: goFadeUp 0.6s ease 1.15s both;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.go-btn:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(245,200,66,0.55); }
+
 /* ─── BOTTOM NAV ─── */
 .bottom-nav {
   display: flex; border-top: 1px solid rgba(255,255,255,0.07);

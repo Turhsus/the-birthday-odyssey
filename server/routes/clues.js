@@ -20,7 +20,12 @@ router.get('/', requireAuth, (req, res) => {
     WHERE ac.team_id IS NOT NULL OR mf.id IS NOT NULL
     ORDER BY c.id
   `).all(teamId ?? -1, teamId ?? -1)
-  res.json({ clues })
+
+  const { total } = db.prepare('SELECT COUNT(*) AS total FROM clues').get()
+  const { solved } = db.prepare('SELECT COUNT(*) AS solved FROM clues WHERE solved = 1').get()
+  const gameOver = total > 0 && solved === total
+
+  res.json({ clues, gameOver })
 })
 
 // Admin: all clues with PIN + how many teams have each one active
@@ -52,14 +57,18 @@ router.post('/:id/submit', requireAuth, (req, res) => {
 
   if (pin !== clue.pin) return res.json({ correct: false })
 
+  // Find all other teams that have this clue active before we claim it
+  const affectedTeams = db.prepare('SELECT team_id FROM active_clues WHERE clue_id = ? AND team_id != ?')
+    .all(clueId, teamId).map(r => r.team_id)
+
   db.transaction(() => {
     db.prepare('DELETE FROM active_clues WHERE team_id = ? AND clue_id = ?').run(teamId, clueId)
     db.prepare('INSERT INTO moon_finds (clue_id, user_id, team_id, team_name) VALUES (?, ?, ?, ?)').run(clueId, userId, teamId, teamName)
-    // Track first claim globally (admin display only)
     if (!clue.solved) {
       db.prepare("UPDATE clues SET solved = 1, solved_by_team = ?, solved_at = datetime('now') WHERE id = ?").run(teamName, clueId)
     }
     ensureActiveClues(teamId)
+    for (const otherTeamId of affectedTeams) ensureActiveClues(otherTeamId)
   })()
 
   res.json({ correct: true })

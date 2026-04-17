@@ -4,8 +4,11 @@ import TopNav from './TopNav'
 import BottomNav from './BottomNav'
 import ClueCard from './ClueCard'
 
+const MEDALS   = ['🥇', '🥈', '🥉']
+const PLACES   = ['1st Place!', '2nd Place!', '3rd Place!']
+
 export default function GameView() {
-  const { user, team, teamId, teamNameLocked, clues, leaderboard, renameTeam } = useApp()
+  const { user, team, teamId, teamNameLocked, clues, leaderboard, renameTeam, gameOver, setCurrentView } = useApp()
   const [renaming, setRenaming] = useState(false)
   const [draft, setDraft]       = useState('')
   const [renameErr, setRenameErr] = useState('')
@@ -20,6 +23,30 @@ export default function GameView() {
       await renameTeam(draft.trim())
       setRenaming(false); setDraft(''); setRenameErr('')
     } catch (e) { setRenameErr(e.message) }
+  }
+
+  if (gameOver) {
+    const idx    = rank >= 1 ? rank - 1 : null
+    const medal  = idx != null && idx < 3 ? MEDALS[idx] : '🌕'
+    const place  = idx != null && idx < 3 ? PLACES[idx] : (rank ? `#${rank} Place` : 'Unranked')
+    return (
+      <div className="game-over-screen">
+        <div className="go-stars">{'★'.repeat(20).split('').map((s, i) => (
+          <span key={i} className="go-star" style={{ '--d': `${Math.random()*6}s`, '--x': `${Math.random()*100}%`, '--y': `${Math.random()*100}%` }}>{s}</span>
+        ))}</div>
+        <div className="go-title">🌙 Hunt Complete!</div>
+        <div className="go-sub">All moons have been claimed</div>
+        <div className="go-badge">
+          <span className="go-medal">{medal}</span>
+          <div className="go-place">{place}</div>
+          <div className="go-team">{team || 'Your Team'}</div>
+          <div className="go-moons">{foundClues.length} moon{foundClues.length !== 1 ? 's' : ''} found</div>
+        </div>
+        <button className="go-btn" onClick={() => setCurrentView('board')}>
+          See Final Standings
+        </button>
+      </div>
+    )
   }
 
   return (
