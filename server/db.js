@@ -50,7 +50,9 @@ db.exec(`
   );
 
   CREATE TABLE IF NOT EXISTS active_clues (
-    clue_id INTEGER PRIMARY KEY REFERENCES clues(id) ON DELETE CASCADE
+    team_id INTEGER NOT NULL REFERENCES teams(id)  ON DELETE CASCADE,
+    clue_id INTEGER NOT NULL REFERENCES clues(id)  ON DELETE CASCADE,
+    PRIMARY KEY (team_id, clue_id)
   );
 `)
 
@@ -58,7 +60,6 @@ db.exec(`
 const { n: clueCount } = db.prepare('SELECT COUNT(*) as n FROM clues').get()
 if (clueCount === 0) {
   const ins = db.prepare('INSERT INTO clues (text, pin, location) VALUES (?, ?, ?)')
-  const act = db.prepare('INSERT INTO active_clues (clue_id) VALUES (?)')
   const seed = [
     ["Where morning light meets the old iron gate, and pigeons gather for their breakfast debate.", "3847", "Main park entrance gate"],
     ["Beside the sleeping giant of stone and oak, where children's laughter and summer rain spoke.", "9152", "Statue in Riverside Park"],
@@ -66,10 +67,7 @@ if (clueCount === 0) {
     ["The old clock tower holds its breath at noon — search its shadow for a crescent moon.", "4419", "Clock tower base, north shadow"],
     ["Under the bridge where the sparrows nest, tucked behind the stone that faces west.", "2281", "Mill Bridge, west pillar"],
   ]
-  seed.forEach(([text, pin, location], i) => {
-    const { lastInsertRowid } = ins.run(text, pin, location)
-    if (i < 2) act.run(lastInsertRowid)
-  })
+  seed.forEach(([text, pin, location]) => ins.run(text, pin, location))
 }
 
 // Seed admin user on first run

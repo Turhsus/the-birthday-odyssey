@@ -76,13 +76,15 @@ export function AppProvider({ children }) {
       return () => clearInterval(id)
     } else if (currentView === 'admin') {
       fetchAdminData()
+      const id = setInterval(fetchAdminData, 10000)
+      return () => clearInterval(id)
     }
   }, [currentView, fetchPlayerData, fetchAdminData])
 
   // ── Auth actions ───────────────────────────────────────────────────────────
 
-  const play = useCallback(async (username, password) => {
-    const data = await api.play(username, password)
+  const play = useCallback(async (username, password, isRegister = false) => {
+    const data = await (isRegister ? api.register(username, password) : api.login(username, password))
     localStorage.setItem('moonhunt_token', data.token)
     localStorage.setItem('moonhunt_session', JSON.stringify({ username: data.username, teamName: data.teamName, teamId: data.teamId, nameLocked: data.nameLocked }))
     setUser(data.username)
@@ -109,7 +111,7 @@ export function AppProvider({ children }) {
   const submitPin = useCallback(async (clueId, pin) => {
     const data = await api.submitPin(clueId, pin)
     if (data.correct) fetchPlayerData()
-    return data.correct
+    return data
   }, [fetchPlayerData])
 
   const renameTeam = useCallback(async (name) => {

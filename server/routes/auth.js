@@ -15,38 +15,37 @@ function userWithTeam(username) {
   `).get(username)
 }
 
-// Player: login or auto-register
-router.post('/play', (req, res) => {
+// Player: login only
+router.post('/login', (req, res) => {
   const { username, password } = req.body
   if (!username || !password) {
     return res.status(400).json({ error: 'Username and password are required.' })
   }
-
   const existing = userWithTeam(username)
-
-  if (existing && !existing.is_admin) {
-    if (!bcrypt.compareSync(password, existing.password_hash)) {
-      return res.status(401).json({ error: 'Wrong password for this username.' })
-    }
-    const token = signToken({ id: existing.id, username: existing.username, teamId: existing.team_id, teamName: existing.team_name, isAdmin: false })
-    return res.json({ token, username: existing.username, teamName: existing.team_name, teamId: existing.team_id, nameLocked: !!existing.name_locked })
+  if (!existing || existing.is_admin) {
+    return res.status(401).json({ error: 'No account found with that username.' })
   }
-
-  if (existing?.is_admin) {
-    return res.status(400).json({ error: 'That username is reserved.' })
+  if (!bcrypt.compareSync(password, existing.password_hash)) {
+    return res.status(401).json({ error: 'Wrong password.' })
   }
+  const token = signToken({ id: existing.id, username: existing.username, teamId: existing.team_id, teamName: existing.team_name, isAdmin: false })
+  res.json({ token, username: existing.username, teamName: existing.team_name, teamId: existing.team_id, nameLocked: !!existing.name_locked })
+})
 
-  // New player — register (team assigned later by admin)
-  try {
-    const { lastInsertRowid } = db.prepare(
-      'INSERT INTO users (username, password_hash) VALUES (?, ?)'
-    ).run(username, bcrypt.hashSync(password, 10))
-    const token = signToken({ id: lastInsertRowid, username, teamId: null, teamName: '', isAdmin: false })
-    res.status(201).json({ token, username, teamName: '', teamId: null, nameLocked: false, isNew: true })
-  } catch (e) {
-    if (e.message.includes('UNIQUE')) return res.status(409).json({ error: 'Username already taken.' })
-    throw e
+// Player: register only
+router.post('/register', (req, res) => {
+  const { username, password } = req.body
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password are required.' })
   }
+  if (db.prepare('SELECT 1 FROM users WHERE username = ?').get(username)) {
+    return res.status(409).json({ error: 'Username already taken.' })
+  }
+  const { lastInsertRowid } = db.prepare(
+    'INSERT INTO users (username, password_hash) VALUES (?, ?)'
+  ).run(username, bcrypt.hashSync(password, 10))
+  const token = signToken({ id: lastInsertRowid, username, teamId: null, teamName: '', isAdmin: false })
+  res.status(201).json({ token, username, teamName: '', teamId: null, nameLocked: false })
 })
 
 // Admin login

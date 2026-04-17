@@ -18,7 +18,8 @@ async function request(path, options = {}) {
 
 export const api = {
   // Auth
-  play:           (username, password)           => request('/auth/play',           { method: 'POST', body: { username, password } }),
+  login:          (username, password)           => request('/auth/login',          { method: 'POST', body: { username, password } }),
+  register:       (username, password)           => request('/auth/register',       { method: 'POST', body: { username, password } }),
   loginAdmin:     (password)                     => request('/auth/login-admin',    { method: 'POST', body: { password } }),
   changePassword: (currentPassword, newPassword) => request('/auth/change-password',{ method: 'PUT',  body: { currentPassword, newPassword } }),
 
@@ -42,6 +43,7 @@ export const api = {
   deleteTeam:  (id)        => request(`/teams/${id}`,    { method: 'DELETE' }),
 
   // Admin
+  startGame: () => request('/admin/start', { method: 'POST' }),
   resetGame: () => request('/admin/reset', { method: 'POST' }),
 
   // Leaderboard

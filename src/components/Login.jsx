@@ -33,7 +33,7 @@ export default function Login() {
     }
 
     setLoading(true)
-    try { await play(username, password) }
+    try { await play(username, password, mode === 'register') }
     catch (e) { setError(e.message) }
     finally { setLoading(false) }
   }

@@ -3,17 +3,19 @@ import { useApp } from '../state/AppContext'
 
 export default function ClueCard({ clue }) {
   const { submitPin } = useApp()
-  const [pin, setPin]         = useState('')
+  const [pin, setPin]           = useState('')
   const [feedback, setFeedback] = useState(null)
-  const [busy, setBusy]       = useState(false)
+  const [busy, setBusy]         = useState(false)
 
   async function handleSubmit() {
     if (pin.length < 4) { setFeedback({ ok: false, msg: 'Enter the full 4-digit PIN.' }); return }
     setBusy(true)
     try {
-      const ok = await submitPin(clue.id, pin)
-      if (ok) {
+      const result = await submitPin(clue.id, pin)
+      if (result.correct) {
         setFeedback({ ok: true, msg: 'Moon found! Well done! 🌕' })
+      } else if (result.claimed) {
+        setFeedback({ ok: false, msg: 'Another team claimed this moon first!' })
       } else {
         setFeedback({ ok: false, msg: 'Wrong PIN. Keep searching!' })
         setPin('')
@@ -26,8 +28,8 @@ export default function ClueCard({ clue }) {
     }
   }
 
-  // Solved clue (found by my team)
-  if (clue.solved) {
+  // Found by my team
+  if (clue.found_by_my_team) {
     return (
       <div className="clue-card solved">
         <div className="clue-header">
@@ -38,6 +40,22 @@ export default function ClueCard({ clue }) {
           </div>
         </div>
         <div className="clue-solved-badge">✓ Found by your team</div>
+      </div>
+    )
+  }
+
+  // Claimed by another team
+  if (clue.is_active && clue.solved) {
+    return (
+      <div className="clue-card claimed">
+        <div className="clue-header">
+          <div className="moon-dot" style={{ borderColor: 'rgba(255,92,106,0.5)', color: 'var(--danger)' }}>✕</div>
+          <div>
+            <div className="clue-num">Moon #{clue.id}</div>
+            <div className="clue-text" style={{ color: 'var(--text-muted)' }}>{clue.text}</div>
+          </div>
+        </div>
+        <div className="clue-claimed-badge">⚡ Claimed</div>
       </div>
     )
   }

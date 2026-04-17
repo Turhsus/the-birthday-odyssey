@@ -25,6 +25,14 @@ export default function AdminView() {
   const totalMoons = clues.length
   const claimed    = clues.filter(c => c.solved).length
 
+  async function handleStartGame() {
+    if (!window.confirm('Start the game?\n\n• Unassigned players will be distributed across teams\n• Each team will receive 2 random starting moons')) return
+    try {
+      await api.startGame()
+      fetchAdminData()
+    } catch (e) { alert(e.message) }
+  }
+
   async function handleResetGame() {
     if (!window.confirm('Reset the entire game?\n\n• All moon finds cleared\n• All clues queued (not deleted)\n• All players unassigned from teams\n• Team names reset to Team 1, Team 2, …\n\nThis cannot be undone.')) return
     try {
@@ -95,9 +103,10 @@ export default function AdminView() {
             <div className="game-title" style={{ color: 'var(--accent-pink)' }}>Mission Control</div>
             <div className="game-subtitle">Manage clues, moons, and hunters</div>
           </div>
-          <button className="icon-btn danger" style={{ marginTop: 4 }} onClick={handleResetGame}>
-            ↺ Reset Game
-          </button>
+          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+            <button className="icon-btn" onClick={handleStartGame}>▶ Start Game</button>
+            <button className="icon-btn danger" onClick={handleResetGame}>↺ Reset Game</button>
+          </div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: '1.5rem' }}>
@@ -124,7 +133,7 @@ export default function AdminView() {
                 <div>
                   <div className="clue-edit-text">{c.text}</div>
                   <div className="clue-meta">
-                    PIN: {c.pin} · {c.solved ? `✓ Claimed by ${c.solved_by_team}` : c.is_active ? '🟢 Active' : 'Queued'}
+                    PIN: {c.pin} · {c.solved ? `✓ First claimed by ${c.solved_by_team}` : c.active_count > 0 ? `🟢 Active for ${c.active_count} team${c.active_count !== 1 ? 's' : ''}` : 'Queued'}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
