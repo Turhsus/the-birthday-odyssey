@@ -1,11 +1,15 @@
 import express from 'express'
 import cors from 'cors'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import authRoutes from './routes/auth.js'
 import clueRoutes from './routes/clues.js'
 import userRoutes from './routes/users.js'
 import teamRoutes from './routes/teams.js'
 import leaderboardRoutes from './routes/leaderboard.js'
 import adminRoutes from './routes/admin.js'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -19,6 +23,11 @@ app.use('/api/users', userRoutes)
 app.use('/api/teams', teamRoutes)
 app.use('/api/leaderboard', leaderboardRoutes)
 app.use('/api/admin', adminRoutes)
+
+app.use(express.static(path.join(__dirname, '../dist')))
+app.get('*', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../dist/index.html'))
+})
 
 app.use((err, _req, res, _next) => {
   console.error(err)
